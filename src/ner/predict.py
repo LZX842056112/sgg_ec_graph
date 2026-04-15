@@ -49,6 +49,48 @@ class Predictor:
             return final_predictions[0]
         return final_predictions
 
+    # 抽取实体
+    def extract(self, inputs: str | list[str]):
+        # 如果是一条数据，转换成列表处理
+        is_str = isinstance(inputs, str)
+        if is_str:
+            inputs = [inputs]
+        # 得到预测标签列表
+        predictions = self.predict(inputs)
+        # 从当前列表中，抽取实体列表
+        entities_list = []
+        for input, labels in zip(inputs, predictions):
+            # 调用内部函数，抽取一个数据样本的所有实体标签
+            entities = self._extract_entities(list(input), labels)
+            entities_list.append(entities)
+        if is_str:
+            return entities_list[0]
+        return entities_list
+
+    def _extract_entities(self, tokens, labels):
+        entities = []
+        current_entity = ""
+        for token, label in zip(tokens, labels):
+            # 如果标签是B，开始保存新实体
+            if label == 'B':
+                if current_entity:
+                    entities.append(current_entity)
+                current_entity = token
+            # 如果标签是I，继续追加实体内容
+            elif label == 'I':
+                if current_entity:
+                    current_entity += token
+            # 如果标签是O，就将实体抽取出来（如果存在），添加到列表
+            else:
+                if current_entity:
+                    entities.append(current_entity)
+                current_entity = ""
+
+        if current_entity:
+            entities.append(current_entity)
+
+        return entities
+
 
 def predict():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -57,12 +99,17 @@ def predict():
     # 定义预测器
     predictor = Predictor(model, tokenizer, device)
     # 定义数据
-    text = "麦德龙德国进口双心多维叶黄素护眼营养软胶囊30粒x3盒眼干涩"
-    # 预测
-    result = predictor.predict(text)
+    text = ["麦德龙德国进口双心多维叶黄素护眼营养软胶囊30粒x3盒眼干涩",
+            "热风2018年秋季时尚女士运动风休闲鞋深口系带单鞋h11w8103"]
+    # # 预测
+    # result = predictor.predict(text)
+    #
+    # for token, label in zip(text, result):
+    #     print(token, label)
 
-    for token, label in zip(text, result):
-        print(token, label)
+    # 抽取实体
+    entities = predictor.extract(text)
+    print(entities)
 
 
 if __name__ == '__main__':
