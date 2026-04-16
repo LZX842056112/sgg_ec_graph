@@ -15,6 +15,9 @@ PROCESSED_DATA_DIR = DATA_DIR / NER_DIR / 'processed'
 LOG_DIR = ROOT_DIR / 'logs'
 CHECKPOINT_DIR = ROOT_DIR / 'checkpoints'
 
+# web 静态目录
+WEB_STATIC_DIR = ROOT_DIR / 'src' / 'web' / 'static'
+
 # 2. 数据文件名 和 模型名称
 RAW_DATA_FILE = str(RAW_DATA_DIR / 'data.json')
 MODEL_NAME = f'D:\cache\huggingface\hub\models--bert-base-chinese\snapshots\8f23c25b06e129b6c986331a13d8d025a92cf0ea'
@@ -42,3 +45,5 @@ NEO4J_CONFIG = {
     'uri': "neo4j://localhost:7687",
     'auth': ("neo4j", os.getenv('NEO4J_PASSWORD')),
 }
+
+API_KEY = os.getenv('DEEPSEEK_API_KEY')
