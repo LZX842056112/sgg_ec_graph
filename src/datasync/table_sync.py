@@ -1,4 +1,7 @@
 from utils import MysqlReader, Neo4jWriter
+from entity_alignment import entity_alignment, vector_indexing
+from configuration.config import NEO4J_CONFIG
+from neo4j import GraphDatabase
 
 
 # 构建一个表数据的同步器
@@ -229,6 +232,33 @@ class TableSynchronizer:
         self.writer.write_relations("Have", "SKU", "BaseAttrValue", relations)
 
 
+def fetch_all_entity_names():
+    """
+    从 Neo4j 中获取所有需要对齐和向量化的实体名称数据。
+    返回格式：[{"name": "实体名称", "type": "实体类型"}, ...]
+    """
+    driver = GraphDatabase.driver(NEO4J_CONFIG["uri"], auth=NEO4J_CONFIG["auth"])
+    datas = []
+    with driver.session() as session:
+        # 查询各类节点
+        queries = {
+            "Trademark": "MATCH (n:Trademark) RETURN n.name AS name",
+            "Category1": "MATCH (n:Category1) RETURN n.name AS name",
+            "Category2": "MATCH (n:Category2) RETURN n.name AS name",
+            "Category3": "MATCH (n:Category3) RETURN n.name AS name",
+            "SPU": "MATCH (n:SPU) RETURN n.name AS name",
+            "SKU": "MATCH (n:SKU) RETURN n.name AS name",
+        }
+        for node_label, cypher in queries.items():
+            result = session.run(cypher)
+            for record in result:
+                name = record["name"]
+                if name:
+                    datas.append({"name": name, "type": node_label.lower()})
+    driver.close()
+    return datas
+
+
 if __name__ == '__main__':
     synchronizer = TableSynchronizer()
 
@@ -264,3 +294,40 @@ if __name__ == '__main__':
     synchronizer.sync_spu_to_sale_attr_name()
     synchronizer.sync_sku_to_sale_attr_value()
     synchronizer.sync_sku_to_base_attr_value()
+
+    # ---------- 实体对齐与向量索引 ----------
+    print("开始实体对齐与向量索引构建...")
+    # 从 Neo4j 中收集所有实体名称
+    all_entities = fetch_all_entity_names()
+
+    # 按类型分组进行对齐
+    # 注意：entity_alignment 函数中 field_name 统一为 "name"
+    # 我们需要将数据格式统一为 [{"name": "xxx"}, ...]
+    trademark_datas = [{"name": e["name"]} for e in all_entities if e["type"] == "trademark"]
+    category1_datas = [{"name": e["name"]} for e in all_entities if e["type"] == "category1"]
+    category2_datas = [{"name": e["name"]} for e in all_entities if e["type"] == "category2"]
+    category3_datas = [{"name": e["name"]} for e in all_entities if e["type"] == "category3"]
+    spu_datas = [{"name": e["name"]} for e in all_entities if e["type"] == "spu"]
+    sku_datas = [{"name": e["name"]} for e in all_entities if e["type"] == "sku"]
+
+    if trademark_datas:
+        entity_alignment(trademark_datas, "trademark", "name")
+    if category1_datas:
+        entity_alignment(category1_datas, "category1", "name")
+    if category2_datas:
+        entity_alignment(category2_datas, "category2", "name")
+    if category3_datas:
+        entity_alignment(category3_datas, "category3", "name")
+    if spu_datas:
+        entity_alignment(spu_datas, "spu", "name")
+    if sku_datas:
+        entity_alignment(sku_datas, "sku", "name")
+
+    # 汇总所有数据用于向量索引
+    all_aligned_datas = (
+            trademark_datas + category1_datas + category2_datas +
+            category3_datas + spu_datas + sku_datas
+    )
+    vector_indexing(all_aligned_datas)
+
+    print("表同步、实体对齐与向量索引全部完成。")

@@ -8,6 +8,7 @@
     <script src="/static/marked.min.js"></script>
     <script src="/static/purify.min.js"></script>
     <style>
+        /* 保留原有所有样式，无需修改 */
         :root {
             --border-radius: 16px;
             --primary-color: #3b82f6;
@@ -49,7 +50,6 @@
             font-size: 16px;
             line-height: 1.5;
             word-break: break-word;
-            /* white-space: pre-wrap; */
         }
 
         .new-message {
@@ -61,7 +61,6 @@
                 opacity: 0;
                 transform: translateY(10px);
             }
-
             to {
                 opacity: 1;
                 transform: none;
@@ -91,14 +90,14 @@
             transition: all 0.3s ease;
             background-color: var(--input-box-bg-color);
             border: 2px solid transparent;
+        }
 
-            &:hover {
-                box-shadow: 0 4px 8px var(--primary-color);
-            }
+        .input-box:hover {
+            box-shadow: 0 4px 8px var(--primary-color);
+        }
 
-            &:focus-within {
-                border: 2px solid var(--primary-color);
-            }
+        .input-box:focus-within {
+            border: 2px solid var(--primary-color);
         }
 
         #user-input {
@@ -124,22 +123,22 @@
             margin-left: auto;
             display: block;
             background-color: var(--primary-color);
+        }
 
-            &:hover {
-                transform: translateY(-2px);
-                box-shadow: 0 4px 8px var(--shadow-color);
-            }
+        #send-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px var(--shadow-color);
+        }
 
-            &:active {
-                transform: translateY(0);
-            }
+        #send-btn:active {
+            transform: translateY(0);
+        }
 
-            &:disabled {
-                background-color: #cccccc;
-                cursor: not-allowed;
-                transform: none !important;
-                box-shadow: none !important;
-            }
+        #send-btn:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+            transform: none !important;
+            box-shadow: none !important;
         }
 
         .loading-container {
@@ -161,7 +160,6 @@
             0% {
                 transform: rotate(0deg);
             }
-
             100% {
                 transform: rotate(360deg);
             }
@@ -170,10 +168,6 @@
         .markdown-content {
             max-width: 100%;
             overflow-x: auto;
-        }
-
-        .markdown-content br {
-            display: none;
         }
 
         .markdown-content h1,
@@ -217,121 +211,155 @@
 </head>
 
 <body>
-    <div id="dialog-area">
-        <div class="bot-message message-bubble">您好！我是电商智能客服，请问有什么需要我帮忙的？</div>
-    </div>
-    <div class="input-box">
-        <textarea id="user-input" placeholder="需要我做什么？"></textarea>
-        <button id="send-btn" onclick="sendMessage()">发送</button>
-    </div>
+<div id="dialog-area">
+    <div class="bot-message message-bubble">您好！我是电商智能客服，请问有什么需要我帮忙的？</div>
+</div>
+<div class="input-box">
+    <textarea id="user-input" placeholder="需要我做什么？"></textarea>
+    <button id="send-btn" onclick="sendMessage()">发送</button>
+</div>
 
-    <script>
-        const dialogArea = document.getElementById('dialog-area');
-        const input = document.getElementById('user-input');
-        const sendBtn = document.getElementById('send-btn');
-        const loadingBubble = createLoadingBubble();
-        marked.setOptions({
-            breaks: false,
-            highlight: function (code) {
-                return hljs.highlightAuto(code).value;
-            }
-        });
+<script>
+    const dialogArea = document.getElementById('dialog-area');
+    const input = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const loadingBubble = createLoadingBubble();
 
-        // 发送消息
-        async function sendMessage() {
-            // 获取用户输入
-            const message = input.value.trim();
-            if (!message) return;
-            // 禁用发送按钮
-            sendBtn.disabled = true;
-            // 发送消息
-            addMessage(message, true);
-            // 清空输入框并恢复高度
-            input.value = '';
-            input.style.height = 'auto';
-            // 添加加载状态
-            dialogArea.appendChild(loadingBubble);
-            window.scrollTo(0, document.body.scrollHeight);
-            // 获取回复
-            try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: message })
-                });
-                const data = await response.json();
-                responseContent = data.message;
-            } catch (error) {
-                responseContent = '系统暂时无法响应，请稍后再试😥';
+    // 配置 marked 和 DOMPurify
+    marked.setOptions({
+        breaks: false,
+        highlight: function (code) {
+            return hljs ? hljs.highlightAuto(code).value : code;
+        }
+    });
+
+    // 发送消息
+    async function sendMessage() {
+        const message = input.value.trim();
+        if (!message) return;
+
+        // 禁用发送按钮
+        sendBtn.disabled = true;
+
+        // 显示用户消息
+        addMessage(message, true);
+
+        // 清空输入框
+        input.value = '';
+        input.style.height = 'auto';
+
+        // 显示加载动画
+        dialogArea.appendChild(loadingBubble);
+        window.scrollTo(0, document.body.scrollHeight);
+
+        // 创建机器人消息气泡（用于流式追加内容）
+        const botBubble = document.createElement('div');
+        botBubble.classList.add('message-bubble', 'bot-message', 'new-message');
+        const markdownContainer = document.createElement('div');
+        markdownContainer.className = 'markdown-content';
+        botBubble.appendChild(markdownContainer);
+
+        // 用于累积 Markdown 原始文本
+        let accumulatedText = '';
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({message: message})
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-            // 移除加载状态
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            // 移除加载动画，换上机器人气泡
             loadingBubble.remove();
-            // 发送回复消息
-            if (responseContent != null) {
-                addMessage(responseContent, false);
-            }
-            // 启用发送按钮
-            sendBtn.disabled = false;
-        }
+            dialogArea.appendChild(botBubble);
 
-        // 自动调整输入框高度
-        document.getElementById('user-input').addEventListener('input', () => {
-            input.style.height = 'auto';
-            input.style.height = Math.min(input.scrollHeight, 200) + 'px';
-        });
+            // 流式读取
+            while (true) {
+                const {done, value} = await reader.read();
+                if (done) break;
 
-        // 监听回车键
-        document.getElementById('user-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-            }
-        });
+                const chunk = decoder.decode(value, {stream: true});
+                accumulatedText += chunk;
 
-        // 创建加载状态的气泡
-        function createLoadingBubble() {
-            const bubble = document.createElement('div');
-            bubble.classList.add('message-bubble', 'bot-message', 'new-message');
-            const loadingContainer = document.createElement('div');
-            loadingContainer.className = 'loading-container';
-            const loader = document.createElement('div');
-            loader.className = 'loader';
-            loadingContainer.appendChild(loader);
-            loadingContainer.appendChild(document.createTextNode('正在思索中...'));
-            bubble.appendChild(loadingContainer);
-            return bubble;
-        }
-
-        // 添加消息气泡
-        function addMessage(content, isUser) {
-            const bubble = document.createElement('div');
-            // 设置气泡样式
-            bubble.classList.add('message-bubble', isUser ? 'user-message' : 'bot-message', 'new-message');
-            // 如果传入的是字符串则创建文本
-            if (!isUser) {
-                // 机器人回复转换为markdown格式
-                const markdownContainer = document.createElement('div');
-                markdownContainer.className = 'markdown-content';
-                const dirty = marked.parse(content.toString());
+                // 实时渲染 Markdown
+                const dirty = marked.parse(accumulatedText);
                 markdownContainer.innerHTML = DOMPurify.sanitize(dirty, {
                     ADD_TAGS: ["iframe"],
                     ADD_ATTR: ["allowfullscreen"]
                 });
-                bubble.appendChild(markdownContainer);
-            } else {
-                bubble.textContent = content;
-            }
-            // 添加气泡动态效果
-            bubble.addEventListener('animationend', function handler() {
-                this.classList.remove('new-message');
-                this.removeEventListener('animationend', handler);
-            });
-            // 对话框添加气泡
-            dialogArea.appendChild(bubble);
-            window.scrollTo(0, document.body.scrollHeight);
-        }
 
-    </script>
+                // 自动滚动到底部
+                window.scrollTo(0, document.body.scrollHeight);
+            }
+
+            // 移除动画类
+            botBubble.addEventListener('animationend', function handler() {
+                botBubble.classList.remove('new-message');
+                botBubble.removeEventListener('animationend', handler);
+            });
+
+        } catch (error) {
+            console.error('请求失败:', error);
+            loadingBubble.remove();
+            // 如果机器人气泡尚未添加，则添加错误信息
+            if (!botBubble.parentNode) {
+                dialogArea.appendChild(botBubble);
+            }
+            markdownContainer.innerHTML = DOMPurify.sanitize('<p style="color: red;">系统暂时无法响应，请稍后再试😥</p>');
+        } finally {
+            // 启用发送按钮
+            sendBtn.disabled = false;
+        }
+    }
+
+    // 创建加载气泡
+    function createLoadingBubble() {
+        const bubble = document.createElement('div');
+        bubble.classList.add('message-bubble', 'bot-message', 'new-message');
+        const loadingContainer = document.createElement('div');
+        loadingContainer.className = 'loading-container';
+        const loader = document.createElement('div');
+        loader.className = 'loader';
+        loadingContainer.appendChild(loader);
+        loadingContainer.appendChild(document.createTextNode('正在思索中...'));
+        bubble.appendChild(loadingContainer);
+        return bubble;
+    }
+
+    // 添加用户消息
+    function addMessage(content, isUser) {
+        const bubble = document.createElement('div');
+        bubble.classList.add('message-bubble', isUser ? 'user-message' : 'bot-message', 'new-message');
+        bubble.textContent = content;
+        bubble.addEventListener('animationend', function handler() {
+            bubble.classList.remove('new-message');
+            bubble.removeEventListener('animationend', handler);
+        });
+        dialogArea.appendChild(bubble);
+        window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    // 自动调整输入框高度
+    input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 200) + 'px';
+    });
+
+    // 回车发送
+    input.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+</script>
 </body>
 
 </html>

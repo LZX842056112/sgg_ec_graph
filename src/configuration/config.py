@@ -20,7 +20,7 @@ WEB_STATIC_DIR = ROOT_DIR / 'src' / 'web' / 'static'
 
 # 2. 数据文件名 和 模型名称
 RAW_DATA_FILE = str(RAW_DATA_DIR / 'data.json')
-MODEL_NAME = f'D:\cache\huggingface\hub\models--bert-base-chinese\snapshots\8f23c25b06e129b6c986331a13d8d025a92cf0ea'
+MODEL_NAME = r'D:\cache\huggingface\hub\models--bert-base-chinese\snapshots\8f23c25b06e129b6c986331a13d8d025a92cf0ea'
 
 # 3. 超参数
 BATCH_SIZE = 2
@@ -47,3 +47,12 @@ NEO4J_CONFIG = {
 }
 
 API_KEY = os.getenv('DEEPSEEK_API_KEY')
+
+# 嵌入模型路径
+EMBEDDING_MODEL_PATH = r'D:\cache\modelscope\hub\models\BAAI\bge-base-zh-v1___5'
+# 向量数据库存储路径
+VECTOR_STORE_DIR = ROOT_DIR / 'data' / 'vectorstore'
+
+# Agent 配置
+AGENT_WITH_MEMORY = True
+AGENT_STREAM_OUTPUT = True

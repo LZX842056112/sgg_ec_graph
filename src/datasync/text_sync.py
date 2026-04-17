@@ -4,6 +4,7 @@ from transformers import AutoTokenizer, AutoModelForTokenClassification
 from configuration.config import *
 from utils import MysqlReader, Neo4jWriter
 from ner.predict import Predictor
+from entity_alignment import entity_alignment, vector_indexing
 
 
 class TextSynchronizer():
@@ -57,6 +58,15 @@ class TextSynchronizer():
         # 5. 写入Neo4j
         self.writer.write_nodes("Tag", tag_properties)
         self.writer.write_relations("Have", "SPU", "Tag", relations)
+
+        # ---------- 实体对齐与向量索引（针对Tag） ----------
+        print("开始对Tag进行实体对齐与向量索引...")
+        # 准备Tag数据
+        tag_datas = [{"name": prop["name"]} for prop in tag_properties]
+        if tag_datas:
+            entity_alignment(tag_datas, "tag", "name")
+            vector_indexing(tag_datas)
+        print("Tag同步、对齐与向量索引完成。")
 
 
 if __name__ == '__main__':
